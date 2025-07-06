@@ -963,23 +963,38 @@ end
 shared.unloadall = unloadall
 library.unloadall = unloadall
 shared.libraries[1 + #shared.libraries] = library
+
+function library:OnUnload(Callback)
+    table.insert(self.signals, Callback)
+end
+
 function library.unload()
-	__runscript = nil
-	hardunload(library)
-	if shared.libraries then
-		for k, v in next, shared.libraries or {} do
-			if v == library then
-				for k in next, table.remove(shared.libraries or {}, k) do
-					v[k] = nil
-				end
-				break
-			end
-		end
-		if shared.libraries and (#shared.libraries == 0) then
-			shared.libraries = nil
-		end
-	end
-	warn("Unloaded")
+    __runscript = nil
+    hardunload(library)
+    -- Execute registered unload callbacks
+    if library.unloadCallbacks then
+        for _, callback in ipairs(library.unloadCallbacks) do
+            local success, err = pcall(callback)
+            if not success then
+                warn("Error in unload callback: " .. tostring(err))
+            end
+        end
+        library.unloadCallbacks = nil
+    end
+    if shared.libraries then
+        for k, v in next, shared.libraries or {} do
+            if v == library then
+                for k in next, table.remove(shared.libraries or {}, k) do
+                    v[k] = nil
+                end
+                break
+            end
+        end
+        if shared.libraries and (#shared.libraries == 0) then
+            shared.libraries = nil
+        end
+    end
+    warn("Unloaded")
 end
 library.Unload = library.unload
 local Instance_new = (syn and syn.protect_gui and function(...)
@@ -1996,9 +2011,7 @@ do
 		end
 	end
 end
-function library:OnUnload(Callback)
-    table.insert(self.signals, Callback)
-end
+
 
 function library:CreateWindow(options, ...)
 	options = (options and type(options) == "string" and resolvevararg("Window", options, ...)) or options
