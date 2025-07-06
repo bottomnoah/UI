@@ -964,24 +964,48 @@ shared.unloadall = unloadall
 library.unloadall = unloadall
 shared.libraries[1 + #shared.libraries] = library
 
-function library:OnUnload(Callback)
-    self.unloadCallbacks = self.unloadCallbacks or {} -- Create a table for callbacks if it doesn't exist
-    table.insert(self.unloadCallbacks, Callback)
+function library:OnUnload(callback)
+    library.UnloadCallback = callback
+    return callback
 end
 
 function library.unload()
     __runscript = nil
-    hardunload(library)
-    -- Execute registered unload callbacks
-    if library.unloadCallbacks then
-        for _, callback in ipairs(library.unloadCallbacks) do
-            local success, err = pcall(callback)
-            if not success then
-                warn("Error in unload callback: " .. tostring(err))
+    
+    -- Call the unload callback if it exists
+    if library.UnloadCallback and type(library.UnloadCallback) == "function" then
+        local x, e = pcall(library.UnloadCallback)
+        if not x and e then
+            warn("Error in unload callback:", e)
+        end
+    end
+
+    -- Unload all elements
+    for cflag, data in next, elements do
+        if data.Type ~= "Persistence" then
+            if data.Set and data.Options.UnloadValue ~= nil then
+                data.Set(data.Options.UnloadValue)
+            end
+            if data.Options.UnloadFunc then
+                local y, u = pcall(data.Options.UnloadFunc)
+                if not y and u then
+                    warn(debug.traceback("Error unloading '"..tostring(cflag).."'\n"..u))
+                end
             end
         end
-        library.unloadCallbacks = nil
     end
+
+    -- Disconnect all signals and destroy objects
+    local hardcache = {}
+    SeverAllConnections(library.signals, hardcache)
+    SeverAllConnections(library.objects, hardcache)
+    hardcache = (table.clear(hardcache) and nil) or nil
+
+    -- Clean up references
+    library.signals = nil
+    library.objects = nil
+
+    -- Remove from shared libraries
     if shared.libraries then
         for k, v in next, shared.libraries or {} do
             if v == library then
@@ -995,6 +1019,7 @@ function library.unload()
             shared.libraries = nil
         end
     end
+
     warn("Unloaded")
 end
 library.Unload = library.unload
