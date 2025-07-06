@@ -1996,6 +1996,10 @@ do
 		end
 	end
 end
+function library:OnUnload(Callback)
+    table.insert(self.signals, Callback)
+end
+
 function library:CreateWindow(options, ...)
 	options = (options and type(options) == "string" and resolvevararg("Window", options, ...)) or options
 	local homepage = nil
