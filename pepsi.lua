@@ -965,7 +965,8 @@ library.unloadall = unloadall
 shared.libraries[1 + #shared.libraries] = library
 
 function library:OnUnload(Callback)
-    table.insert(self.signals, Callback)
+    self.unloadCallbacks = self.unloadCallbacks or {} -- Create a table for callbacks if it doesn't exist
+    table.insert(self.unloadCallbacks, Callback)
 end
 
 function library.unload()
